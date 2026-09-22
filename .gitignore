@@ -1,0 +1,19 @@
+/target
+**/*.rs.bk
+*.pdb
+
+# Local assets and scratch output
+/assets/soundfonts/*.sf2
+/assets/soundfonts/*.sf3
+/out
+/renders
+*.mp4
+*.mov
+*.webm
+*.wav
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
