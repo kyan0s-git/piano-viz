@@ -12,19 +12,32 @@ shipping a permissively-licensed static binary. `oxisynth` is the other pure-
 Rust option; `rustysynth` has broader adoption and fewer dependencies, which
 fits the "small" principle better.
 
-### SoundFont format
+### The built-in piano
 
-**`rustysynth` reads SF2 only — not SF3.** SF3 stores samples as Ogg Vorbis
-and is typically a third the size, which would have been useful for the
-bundled asset. It isn't available, so:
+**`rustysynth` reads SF2 only — not SF3**, so a compressed bundled font
+wasn't available. Rather than ship an 8 MB SF2, the built-in piano is
+*synthesized at startup* (`pv-audio/src/piano.rs`) and packed into an
+in-memory SF2 that the same synthesizer plays. That puts zero bytes of audio
+in the binary and leaves no licensing question.
 
-- Bundle a compact GM piano SF2, targeting under 8 MB
-- Let users load any SF2 they like, which is the real answer for quality
-- If the bundled size becomes a problem, the options are to decode SF3 to SF2
-  in memory at load, or to contribute SF3 support upstream. Neither is v1.
+The model is additive and physically motivated: stiff-string inharmonicity
+rising toward the treble, a hammer-position notch in the spectrum, two-stage
+("prompt" and "aftersound") decay with higher partials dying faster, up to
+three detuned unison strings whose beating is much of a piano's character, a
+filtered-noise hammer transient, and two velocity layers since rustysynth has
+no velocity-to-filter modulation. Samples sit every six semitones. Generation
+takes about 0.75 s on four cores and runs off the UI thread.
 
-The bundled font is the largest single asset in the binary, so its size is
-chosen against the sub-20 MB target rather than for maximum fidelity.
+It's a respectable default, not a concert grand. Loading any SF2 replaces it,
+and that's the real answer for quality: FluidR3_GM (MIT) and GeneralUser GS
+are good freely-licensed choices.
+
+### Loudness
+
+The synth runs at 3x rustysynth's default gain, which puts typical piano
+music around -6 dBFS, followed by a stateless soft limiter (transparent below
+0.8, tanh knee above) so a dense fortissimo chord saturates gently instead of
+clipping. Being stateless, it keeps offline renders bit-reproducible.
 
 ## Output
 
@@ -61,16 +74,20 @@ enum AudioCommand {
 ```
 
 Commands that would allocate — loading a different SoundFont, replacing the
-score — are handled by preparing the new object on a worker thread and
-swapping an `Arc` pointer, so the audio thread only ever does a pointer read.
-The old object is dropped on the main thread, never in the callback.
+score — are handled by preparing the new object on another thread and
+sending it over, so the audio thread only moves a pointer. The object it
+replaces is sent back through a second ring buffer and dropped on the main
+thread, never in the callback. Seeks carry their controller "chase" state
+(pedal, program, bend in effect at the seek point), computed off the audio
+thread, so jumping into a pedaled passage sounds right.
 
 ## Sequencing
 
-The audio thread owns the playhead and emits note events at sample accuracy,
-rather than at buffer granularity. Quantizing note starts to the 512-sample
-buffer boundary would put notes up to 10 ms early or late, which is audible
-on fast passages as a loss of crispness.
+The audio thread owns the playhead and emits note events inside the
+callback's buffer rather than at its boundary. Quantizing note starts to the
+512-sample buffer would put notes up to 10 ms early or late, audible on fast
+passages as a loss of crispness. Events land on the synth's internal 64-sample
+block instead — 1.3 ms at 48 kHz, well below audibility.
 
 Within a callback of `n` frames:
 
