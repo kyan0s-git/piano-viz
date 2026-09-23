@@ -21,12 +21,13 @@ holds four:
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Note {
     pub start: f32,     // seconds from song start
-    pub duration: f32,  // seconds; always > 0 after normalization
+    pub duration: f32,  // seconds the key is held; always > 0
+    pub sustain: f32,   // extra seconds sounding after release, from the pedal
     pub pitch: u8,      // 0..=127
     pub velocity: u8,   // 1..=127
-    pub track: u8,      // index into TrackTable, saturating at 255
-    pub flags: u8,      // bit 0: sustained by pedal, bit 1: is_black_key
-    pub _pad: [u8; 4],
+    pub track: u8,      // index into the track list, saturating at 255
+    pub flags: u8,      // low nibble: PEDAL, BLACK, CLAMPED, PERCUSSION
+                        // high nibble: MIDI channel
 }
 ```
 
@@ -46,14 +47,13 @@ matters more.
 
 ```rust
 pub struct NoteTable {
-    notes: Vec<Note>,           // sorted by (start, pitch)
-    max_duration: f32,          // for the visible-window scan-back
-    per_pitch: [Vec<u32>; 128], // indices, for live highlighting
+    notes: Vec<Note>,   // sorted by (start, pitch)
+    max_extent: f32,    // longest duration + sustain, for the window scan-back
 }
 ```
 
 Sorted by start time because the renderer's visible-window query is a binary
-search, and the sequencer's playback is a forward scan. `max_duration` is
+search, and the sequencer's playback is a forward scan. `max_extent` is
 cached because the window query needs it — see
 [Rendering](04-rendering.md#visible-window-query).
 
@@ -102,7 +102,7 @@ each has a defined behavior rather than a crash:
 | Note-off with no matching note-on | Discard silently |
 | Note-on with no note-off before EOF | Clamp to end of track, flag it |
 | Zero-duration note | Clamp to a 1 ms floor so it's visible and audible |
-| Sustain pedal (CC64) | Extend visually and audibly to pedal release; set `flags` bit 0 |
+| Sustain pedal (CC64) | Record the extra ring time in `sustain` (cut short if the key is struck again); set `PEDAL`. The synth receives the CC itself |
 | Sostenuto (CC66) / soft (CC67) | Passed to the synth; sostenuto not visualized in v1 |
 | Channel 10 (percussion) | Excluded from the keyboard, kept for audio |
 | Pitch bend | Sent to the synth; no visual in v1 |

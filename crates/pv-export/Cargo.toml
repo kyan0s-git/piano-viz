@@ -1,0 +1,15 @@
+[package]
+name = "pv-export"
+description = "Video export for piano-viz"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+pv-core.workspace = true
+pv-render.workspace = true
+pv-audio.workspace = true
+
+[lints]
+workspace = true

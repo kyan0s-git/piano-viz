@@ -1,0 +1,15 @@
+[package]
+name = "pv-midi"
+description = "MIDI file parsing into a piano-viz Score"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+pv-core.workspace = true
+midly.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

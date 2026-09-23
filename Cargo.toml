@@ -1,0 +1,57 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/kyan0s-git/piano-viz"
+rust-version = "1.88"
+
+[workspace.dependencies]
+pv-core = { path = "crates/pv-core" }
+pv-midi = { path = "crates/pv-midi" }
+pv-design = { path = "crates/pv-design" }
+pv-audio = { path = "crates/pv-audio" }
+pv-render = { path = "crates/pv-render" }
+pv-export = { path = "crates/pv-export" }
+
+anyhow = "1"
+bytemuck = { version = "1", features = ["derive"] }
+clap = { version = "4", features = ["derive"] }
+cpal = "0.18"
+egui = { version = "0.36", default-features = false, features = ["default_fonts"] }
+egui-wgpu = { version = "0.36", default-features = false }
+egui-winit = { version = "0.36", default-features = false, features = ["links", "wayland", "x11"] }
+midir = "0.11"
+midly = { version = "0.5", default-features = false, features = ["alloc", "std"] }
+notify = "8"
+png = "0.18"
+pollster = "1"
+rfd = { version = "0.17", default-features = false, features = ["xdg-portal", "async-std"] }
+rtrb = "0.4"
+rustysynth = "1"
+serde = { version = "1", features = ["derive"] }
+thiserror = "2"
+toml = { version = "1", default-features = false, features = ["parse", "serde", "display"] }
+wgpu = { version = "30", default-features = false, features = ["vulkan", "metal", "dx12", "wgsl", "std"] }
+winit = { version = "0.30", default-features = false, features = ["rwh_06", "x11", "wayland", "wayland-dlopen"] }
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true
+
+# Dependencies optimized even in dev builds: an unoptimized synth or
+# shader compiler makes debug builds too slow to judge by eye.
+[profile.dev.package."*"]
+opt-level = 2

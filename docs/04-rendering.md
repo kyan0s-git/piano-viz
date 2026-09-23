@@ -120,16 +120,16 @@ The CPU's entire per-frame note work:
 
 ```rust
 let t_end = t + lookahead;                 // furthest note that has entered
-let t_start = t - max_duration - tail;     // earliest still-visible note
+let t_start = t - max_extent - tail;       // earliest still-visible note
 
 let lo = notes.partition_point(|n| n.start < t_start);
 let hi = notes.partition_point(|n| n.start < t_end);
 // draw instances lo..hi
 ```
 
-Two binary searches. The scan-back by `max_duration` is what handles a very
+Two binary searches. The scan-back by `max_extent` is what handles a very
 long note whose start is far off-screen but whose body still covers the
-window — without it, held pedal notes vanish. Tracking `max_duration` per
+window — without it, held pedal notes vanish. Tracking `max_extent` per
 file rather than assuming a bound keeps the range tight for normal music.
 
 Notes are sorted by start, so `lo..hi` is contiguous and draws as one range.

@@ -1,0 +1,17 @@
+[package]
+name = "pv-app"
+description = "piano-viz desktop application"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "piano-viz"
+path = "src/main.rs"
+
+[dependencies]
+pv-core.workspace = true
+
+[lints]
+workspace = true

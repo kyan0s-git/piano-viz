@@ -1,0 +1,17 @@
+[package]
+name = "pv-cli"
+description = "piano-viz headless command-line renderer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "pv"
+path = "src/main.rs"
+
+[dependencies]
+pv-core.workspace = true
+
+[lints]
+workspace = true

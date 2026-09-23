@@ -1,0 +1,13 @@
+[package]
+name = "pv-core"
+description = "Core types for piano-viz: notes, time, score"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+bytemuck.workspace = true
+
+[lints]
+workspace = true

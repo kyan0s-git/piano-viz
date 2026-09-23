@@ -1,0 +1,16 @@
+[package]
+name = "pv-design"
+description = "Design (theme) schema and loading for piano-viz"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+pv-core.workspace = true
+serde.workspace = true
+toml.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

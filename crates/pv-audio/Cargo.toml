@@ -1,0 +1,13 @@
+[package]
+name = "pv-audio"
+description = "SoundFont synthesis and audio output for piano-viz"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+pv-core.workspace = true
+
+[lints]
+workspace = true
