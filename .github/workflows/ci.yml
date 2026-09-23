@@ -34,7 +34,7 @@ jobs:
       - name: System libraries
         if: runner.os == 'Linux'
         # lavapipe gives the GPU tests a software Vulkan device.
-        run: sudo apt-get update && sudo apt-get install -y libasound2-dev mesa-vulkan-drivers
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev mesa-vulkan-drivers ffmpeg
       - uses: Swatinem/rust-cache@v2
       - name: Tests
         run: cargo test --workspace

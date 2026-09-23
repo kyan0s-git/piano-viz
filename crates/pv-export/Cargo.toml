@@ -7,9 +7,15 @@ license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-pv-core.workspace = true
-pv-render.workspace = true
+png.workspace = true
 pv-audio.workspace = true
+pv-core.workspace = true
+pv-design.workspace = true
+pv-render.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+pv-midi.workspace = true
 
 [lints]
 workspace = true

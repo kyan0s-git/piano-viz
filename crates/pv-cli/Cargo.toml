@@ -11,7 +11,15 @@ name = "pv"
 path = "src/main.rs"
 
 [dependencies]
+anyhow.workspace = true
+clap.workspace = true
+png.workspace = true
+pv-audio.workspace = true
 pv-core.workspace = true
+pv-design.workspace = true
+pv-export.workspace = true
+pv-midi.workspace = true
+pv-render.workspace = true
 
 [lints]
 workspace = true

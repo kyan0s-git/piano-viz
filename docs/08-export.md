@@ -72,16 +72,33 @@ per-format code, and users can pass their own flags for cases we didn't
 anticipate.
 
 ```
-ffmpeg -f rawvideo -pix_fmt rgba -s 1920x1080 -r 60 -i -   \
-       -i audio.wav -c:v libx264 -crf 18 -preset medium    \
-       -pix_fmt yuv420p -c:a aac -b:a 320k out.mp4
+ffmpeg -f rawvideo -pix_fmt rgba -s 1920x1080 -r 60/1 -i - -i audio.wav \
+       -map 0:v -map 1:a -c:v libx264 -preset medium -crf 18            \
+       -vf scale=out_color_matrix=bt709:out_range=tv,format=yuv420p      \
+       -colorspace bt709 -color_primaries bt709 -color_trc bt709         \
+       -movflags +faststart -c:a aac -b:a 320k out.mp4
 ```
+
+The color arguments matter. Left to itself, ffmpeg converts RGB to YUV with
+the BT.601 matrix, which visibly shifts reds and greens in HD video, and
+leaves the stream untagged so players guess. Every YUV preset pins BT.709
+and says so.
+
+Frames reach ffmpeg from a separate writer thread over a small bounded
+queue, with buffers recycled back to the renderer: encoding overlaps
+rendering, and the steady state allocates nothing. ffmpeg's stderr is drained
+on its own thread so it can never block on a full pipe, and is reported
+verbatim if the encode fails.
 
 ### Finding ffmpeg
 
-1. A path set in preferences
+1. A path set explicitly — used as given; if it's wrong that's an error,
+   never a silent fallback to some other ffmpeg
 2. Alongside our binary (for anyone who wants to bundle it themselves)
 3. On `PATH`
+
+Having found it, we run `ffmpeg -encoders` and confirm the chosen format's
+encoder exists (not every build has libx265 or libvpx).
 4. If absent: say so clearly, link to install instructions per platform, and
    **offer PNG-sequence export as a working fallback** — which needs no
    external tool and is what compositors often want anyway.
@@ -134,13 +151,18 @@ tonemapped with premultiplied alpha preserved.
 `pv-cli` is the same engine with no window:
 
 ```
-pv render song.mid --design ember.pvd -o out.mp4 \
-   --resolution 1920x1080 --fps 60 --ss 2
-
-pv render song.mid --design ember.pvd -o out.mov --alpha
-pv batch ./midis/ --design ember.pvd --out ./renders/
-pv inspect song.mid          # note count, duration, tracks, tempo map
+pv render song.mid --design aurora -o out.mp4 --size 1920x1080 --fps 60 --ss 2
+pv render song.mid --design my-look/ --format prores --alpha
+pv render demo --to 12                  # the built-in piece, first 12 s
+pv still song.mid --at 42.5 -o frame.png
+pv batch ./midis/ --out ./renders/ --design neon
+pv inspect song.mid                     # tracks, ranges, tempo, duration
+pv designs                              # the built-in Designs
+pv demo -o prelude.mid                  # write the demo piece as MIDI
 ```
+
+Formats: `mp4` (H.264), `h265`, `prores` (4444, alpha), `webm` (VP9,
+alpha), `lossless` (FFV1), `png` (sequence plus `audio.wav`).
 
 This is the piece Embers never had. It makes batch rendering possible, makes
 the app usable from scripts and CI, and — not incidentally — is what lets the

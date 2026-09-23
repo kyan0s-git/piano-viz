@@ -123,7 +123,8 @@ fn seeking_restores_the_pedal() {
 #[test]
 fn muted_tracks_are_silent_and_muting_never_sticks_notes() {
     let s = score(vec![note(0.0, 0.5, 60, 1)], vec![]);
-    let opts = OfflineOptions { muted: TrackMask::from_muted(&[false, true]), ..Default::default() };
+    let opts =
+        OfflineOptions { muted: TrackMask::from_muted(&[false, true]), ..Default::default() };
     let audio = offline::render(&s, &font(), &opts, 0.0, 1.0, |_| {}).unwrap();
     assert!(audio.iter().all(|v| v.abs() < 1e-3), "muted track sounded");
 
