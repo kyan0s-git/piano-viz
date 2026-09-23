@@ -7,10 +7,9 @@ license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-pv-core.workspace = true
 serde.workspace = true
-toml.workspace = true
 thiserror.workspace = true
+toml.workspace = true
 
 [lints]
 workspace = true

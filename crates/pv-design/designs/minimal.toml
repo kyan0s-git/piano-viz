@@ -1,0 +1,54 @@
+# Minimal — flat and legible. For tutorials, where the notes need to be
+# read rather than admired.
+
+particles = []            # no particle effects
+
+[meta]
+name = "Minimal"
+author = "piano-viz"
+description = "Flat colors on a light background, no effects"
+
+[background]
+type = "solid"
+color = "#f3f1ec"
+
+[notes]
+corner_radius = 3.0
+border_width = 0.0
+intensity = 1.0
+gradient = "none"
+active_boost = 1.0
+
+[notes.color]
+source = "hand"
+palette = ["#2f6fdf", "#e0632a"]
+velocity_brightness = 0.0
+black_key_shade = 0.78
+
+[notes.sustain_tail]
+opacity = 0.25
+
+[keyboard]
+white_key_color = "#ffffff"
+black_key_color = "#26262b"
+separator_color = "#b9b6ae"
+
+[keyboard.strike_line]
+enabled = false
+
+[keyboard.pressed]
+tint_amount = 0.7
+glow_intensity = 0.0
+
+[post.bloom]
+enabled = false
+
+[post.tonemap]
+operator = "none"
+saturation = 1.0
+
+[post.vignette]
+enabled = false
+
+[post.grain]
+enabled = false

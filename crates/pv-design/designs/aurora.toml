@@ -1,0 +1,81 @@
+# Aurora — cool gradients, soft rising light, slow drift.
+
+[meta]
+name = "Aurora"
+author = "piano-viz"
+description = "Cool light drifting over a night sky"
+
+[background]
+type = "gradient"
+angle = 90.0
+stops = [
+  { at = 0.0, color = "#03101a" },
+  { at = 0.55, color = "#060b1c" },
+  { at = 1.0, color = "#0b0620" },
+]
+
+[background.reflection]
+enabled = true
+opacity = 0.2
+fade = 0.6
+
+[notes]
+corner_radius = 7.0
+border_width = 1.0
+border_color = "#e0fbff50"
+intensity = 1.4
+gradient = "across"
+active_boost = 1.8
+
+[notes.color]
+source = "hand"
+palette = ["#3fd6c8", "#8a7dff"]
+velocity_brightness = 0.35
+
+[keyboard]
+white_key_color = "#dfe7ec"
+black_key_color = "#0e1420"
+
+[keyboard.strike_line]
+color = "#7ee8ff"
+
+[[particles]]
+event = "note_hit"
+count = 18
+lifetime = 1.8
+speed = 110.0
+spread_degrees = 120.0
+gravity = [0.0, 20.0]
+drag = 1.6
+size = 2.2
+turbulence = 40.0
+white_hot = 0.3
+intensity = 2.4
+
+[[particles]]
+event = "note_hold"
+rate = 16.0
+lifetime = 3.0
+speed = 70.0
+spread_degrees = 20.0
+gravity = [0.0, 30.0]
+drag = 0.4
+size = 1.6
+turbulence = 50.0
+intensity = 2.0
+
+[post.bloom]
+intensity = 1.1
+radius = 1.0
+tint = "#c8f0ff"
+
+[post.tonemap]
+saturation = 1.15
+
+[camera.drift]
+enabled = true
+amount = 8.0
+speed = 0.06
+
+[layout]
+lookahead = 3.2

@@ -1,0 +1,55 @@
+# Print — white background, dark notes, no effects. For screenshots and
+# documentation.
+
+particles = []            # no particle effects
+
+[meta]
+name = "Print"
+author = "piano-viz"
+description = "Black on white, no effects"
+
+[background]
+type = "solid"
+color = "#ffffff"
+
+[notes]
+corner_radius = 1.5
+border_width = 0.0
+intensity = 1.0
+gradient = "none"
+active_boost = 1.0
+
+[notes.color]
+source = "fixed"
+palette = ["#1c1c1c"]
+velocity_brightness = 0.0
+black_key_shade = 1.0
+
+[notes.sustain_tail]
+enabled = false
+
+[keyboard]
+white_key_color = "#ffffff"
+black_key_color = "#1c1c1c"
+separator_color = "#8a8a8a"
+
+[keyboard.strike_line]
+enabled = false
+
+[keyboard.pressed]
+tint_amount = 0.35
+glow_intensity = 0.0
+depress_pixels = 0.0
+
+[post.bloom]
+enabled = false
+
+[post.tonemap]
+operator = "none"
+saturation = 1.0
+
+[post.vignette]
+enabled = false
+
+[post.grain]
+enabled = false

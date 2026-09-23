@@ -1,0 +1,72 @@
+# Neon — saturated color on black, hard bloom, a little impact shake.
+
+[meta]
+name = "Neon"
+author = "piano-viz"
+description = "Saturated color, black field, hard bloom"
+
+[background]
+type = "solid"
+color = "#000000"
+
+[notes]
+corner_radius = 2.0
+border_width = 2.0
+border_color = "#ffffffc0"
+intensity = 2.6
+gradient = "none"
+active_boost = 2.0
+
+[notes.color]
+source = "pitch_class"
+palette = [
+  "#ff2d6f", "#ff5a36", "#ff9a1f", "#ffd21f", "#b8f21f", "#3df26b",
+  "#1ff2c8", "#1fc8ff", "#3d7bff", "#7b4dff", "#c43dff", "#ff3dc8",
+]
+black_key_shade = 0.9
+
+[keyboard]
+white_key_color = "#1a1a1f"
+black_key_color = "#050507"
+separator_color = "#2c2c33"
+
+[keyboard.strike_line]
+color = "#ffffff"
+intensity = 2.0
+
+[keyboard.pressed]
+tint_amount = 1.0
+glow_intensity = 2.6
+
+[[particles]]
+event = "note_hit"
+count = 48
+lifetime = 0.9
+speed = 380.0
+spread_degrees = 140.0
+gravity = [0.0, -300.0]
+drag = 2.0
+size = 2.0
+white_hot = 0.6
+intensity = 4.0
+
+[post.bloom]
+threshold = 0.6
+intensity = 1.4
+radius = 0.6
+tint = "#ffffff"
+
+[post.tonemap]
+operator = "aces"
+saturation = 1.25
+
+[post.chromatic_aberration]
+enabled = true
+amount = 0.0025
+
+[post.vignette]
+amount = 0.5
+
+[camera.shake]
+enabled = true
+amount = 2.0

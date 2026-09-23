@@ -87,10 +87,9 @@ Emitters attach to events, not to objects:
 
 | Event | Fires when | Typical use |
 |---|---|---|
-| `NoteHit` | note crosses the strike line | the burst — the signature effect |
+| `NoteHit` | note crosses the strike line (in live mode: the key goes down) | the burst — the signature effect |
 | `NoteHold` | continuously while sounding | rising embers from a held key |
 | `NoteRelease` | note ends | a soft puff on release |
-| `KeyPress` | any key goes down | keyboard-local sparkle |
 
 `NoteHold` needs care: it's continuous, so its "spawn time" is a sub-stream
 within the note's duration. Particle `i` of a hold emitter spawns at

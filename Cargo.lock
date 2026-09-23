@@ -69,7 +69,6 @@ dependencies = [
 name = "pv-design"
 version = "0.1.0"
 dependencies = [
- "pv-core",
  "serde",
  "thiserror",
  "toml",

@@ -26,7 +26,9 @@ for effect variants with `#[serde(tag = "type")]`.
 
 ## Bundle layout
 
-A Design is a directory, or a zip of one with the extension `.pvd`:
+A Design is a single `.toml` file, or a directory holding `design.toml` plus
+its assets. (Zipped `.pvd` bundles for distribution are planned; v1 reads
+directories, which keeps a zip library out of the binary until it's needed.)
 
 ```
 ember-classic.pvd/
@@ -37,140 +39,39 @@ ember-classic.pvd/
     font.ttf
 ```
 
-A directory during authoring (hot-reload works on it), zipped for
-distribution. Assets are referenced by relative path and may not escape the
-bundle — a `../` in an asset path is rejected at load, since Designs are
+Assets are referenced by relative path and may not escape the bundle — a `../` in an asset path is rejected at load, since Designs are
 files people download from strangers.
 
 ## Schema
 
+The authoritative reference is
+[`crates/pv-design/designs/ember-classic.toml`](../crates/pv-design/designs/ember-classic.toml),
+which spells out every setting with comments. A test asserts it equals the
+code's defaults, so the reference can't drift from the implementation.
+
+Other Designs list only what they change; everything else falls back to the
+defaults. A complete, working Design can be this short:
+
 ```toml
 [meta]
-name = "Ember Classic"
-author = "kyan0s"
-version = 1                    # schema version, not design version
-description = "Warm sparks on a dark field"
+name = "Night Blue"
 
-# ── Background ───────────────────────────────────────────────
 [background]
-type = "gradient"              # solid | gradient | image
-stops = [
-  { at = 0.0, color = "#05060a" },
-  { at = 1.0, color = "#120a06" },
-]
-angle = 90.0
-
-[background.reflection]
-enabled = true
-opacity = 0.25
-blur = 4.0
-fade = 0.7
-
-# ── Notes ────────────────────────────────────────────────────
-[notes]
-corner_radius = 4.0
-border_width = 1.5
-border_color = "#ffffff60"
-opacity = 1.0
-intensity = 2.2                # HDR multiplier — drives bloom strength
-gradient = "along"             # none | along | across
-gradient_falloff = 0.35
+type = "solid"
+color = "#040814"
 
 [notes.color]
-source = "track"               # track | channel | hand | pitch_class | fixed | velocity
-palette = ["#ff6b35", "#f7c59f", "#efefd0", "#4f9d9d"]
-velocity_brightness = 0.4      # how much velocity scales brightness
+source = "hand"
+palette = ["#3fd6c8", "#8a7dff"]
 
-# ── Keyboard ─────────────────────────────────────────────────
-[keyboard]
-range = "auto"                 # auto | "88" | "76" | "61" | "21-108"
-height = 0.16                  # fraction of viewport height
-white_key_color = "#e8e8e8"
-black_key_color = "#0d0d0d"
-black_width_ratio = 0.58
-black_length_ratio = 0.62
-separator_width = 1.0
-
-[keyboard.pressed]
-tint_from_note = true           # pressed key takes the note's color
-glow_intensity = 1.8
-glow_radius = 24.0
-depress_pixels = 2.0            # keys visibly move
-
-# ── Particles ────────────────────────────────────────────────
-[[particles]]
-event = "note_hit"
-count = 48
-lifetime = 1.4
-lifetime_variance = 0.35
-speed = 260.0
-speed_variance = 0.4
-spread_degrees = 70.0
-gravity = [0.0, -180.0]
-drag = 0.9
-size = 3.5
-size_curve = "shrink"           # constant | shrink | grow | pulse
-opacity_curve = "fade_out"
-turbulence = 30.0
-color_source = "note"           # note | palette | fixed
-intensity = 3.0
-velocity_response = 0.7         # MIDI velocity scales count/speed/size
-
-[[particles]]
-event = "note_hold"
-rate = 14.0                     # per second while held
-lifetime = 2.0
-speed = 40.0
-spread_degrees = 25.0
-gravity = [0.0, 60.0]           # embers rise
-size = 2.0
-intensity = 2.0
-
-# ── Post-processing ──────────────────────────────────────────
 [post.bloom]
-enabled = true
-threshold = 0.85
-soft_knee = 0.5
-intensity = 0.9
-radius = 1.0
-tint = "#ffd9b0"
-
-[post.tonemap]
-operator = "agx"               # agx | aces | reinhard | none
-exposure = 1.0
-
-[post.vignette]
-enabled = true
-amount = 0.35
-smoothness = 0.5
-
-[post.grain]
-enabled = true
-amount = 0.03
-
-[post.chromatic_aberration]
-enabled = false
-amount = 0.002
-
-# ── Camera ───────────────────────────────────────────────────
-[camera]
-zoom = 1.0
-[camera.shake]
-enabled = true
-amount = 2.5
-decay = 8.0
-velocity_response = 1.0
-[camera.drift]
-enabled = false
-amount = 6.0
-speed = 0.08
-
-# ── Layout ───────────────────────────────────────────────────
-[layout]
-lookahead = 3.0                # seconds of future visible
-direction = "down"             # down | up
-strike_line = 0.16             # matches keyboard height
+intensity = 1.2
 ```
+
+Top-level sections: `meta`, `background` (with `reflection`), `notes` (with
+`color` and `sustain_tail`), `keyboard` (with `strike_line` and `pressed`),
+`particles` (an array of emitters), `post` (`bloom`, `tonemap`, `vignette`,
+`grain`, `chromatic_aberration`), `camera` (`shake`, `drift`), and `layout`.
 
 ## Color notation
 
