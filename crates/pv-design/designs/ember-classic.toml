@@ -44,7 +44,7 @@ intensity = 1.6            # HDR multiplier: above 1 blooms
 gradient = "along"         # none | along | across
 gradient_falloff = 0.35
 margin = 1.0               # gap to the key edges
-active_boost = 1.6         # brighten while sounding
+active_boost = 1.35        # brighten while sounding
 
 [notes.color]
 source = "track"           # track | channel | hand | pitch_class | fixed | velocity
@@ -54,8 +54,8 @@ black_key_shade = 0.75     # darken notes on black keys
 # split = 60               # hand split pitch; omit to detect from the music
 
 [notes.sustain_tail]
-enabled = true             # draw pedal ring time as a faint tail
-opacity = 0.18
+enabled = false            # draw pedal ring time as a faint tail
+opacity = 0.14
 
 # ── Keyboard ────────────────────────────────────────────────
 [keyboard]

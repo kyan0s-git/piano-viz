@@ -66,20 +66,25 @@ impl Score {
 
     /// A pitch that separates left hand from right, for hand-based coloring.
     ///
-    /// Picks the least-used pitch near middle C, favoring C4 on ties, so the
-    /// split falls in the gap between the hands rather than through a busy
-    /// register.
+    /// Near middle C unless there is a clear gap elsewhere: each semitone
+    /// away from C4 must buy a 2% drop in the share of notes near the split.
+    /// Without that bias, hands that overlap (most real music) push the split
+    /// to some rarely-used pitch an octave away.
     pub fn suggested_split(&self) -> u8 {
         let mut hist = [0u32; 128];
+        let mut total = 0u32;
         for n in self.notes.as_slice().iter().filter(|n| !n.has(flags::PERCUSSION)) {
             hist[n.pitch as usize] += 1;
+            total += 1;
         }
-        (48u8..=72)
-            .min_by_key(|&p| {
-                let busy: u32 = (p - 2..=p + 2).map(|q| hist[q as usize]).sum();
-                (busy, (p as i32 - 60).unsigned_abs())
-            })
-            .unwrap_or(60)
+        if total == 0 {
+            return 60;
+        }
+        let cost = |p: u8| {
+            let busy: u32 = (p - 2..=p + 2).map(|q| hist[q as usize]).sum();
+            busy as f32 / total as f32 + 0.02 * (p as f32 - 60.0).abs()
+        };
+        (48u8..=72).min_by(|&a, &b| cost(a).total_cmp(&cost(b))).unwrap_or(60)
     }
 
     /// Seconds before the first note. Large values suggest trimming lead-in.
@@ -104,6 +109,16 @@ mod tests {
         let score = Score { notes: NoteTable::new(notes), ..Default::default() };
         let split = score.suggested_split();
         assert!((52..=62).contains(&split), "split {split}");
+    }
+
+    #[test]
+    fn split_stays_near_middle_c_when_hands_overlap() {
+        // Dense overlapping hands, with a lone quiet gap an octave down.
+        let mut notes: Vec<_> = (50..75).flat_map(|p| std::iter::repeat_n(n(p), 10)).collect();
+        notes.retain(|x| x.pitch != 49);
+        let score = Score { notes: NoteTable::new(notes), ..Default::default() };
+        let split = score.suggested_split();
+        assert!((57..=63).contains(&split), "split {split}");
     }
 
     #[test]

@@ -68,16 +68,18 @@ changes. Not per frame.
 The standard 88-key range is A0 (21) to C8 (108), but the range is
 configurable and auto-fits to content.
 
-White key x-position is a running count of white keys before it; black keys
-are positioned relative to their preceding white key with the traditional
-non-uniform offsets — C#/D# and F#/G#/A# are not evenly spaced within their
-groups, and evenly spacing them is the single most common tell of a
-hand-rolled keyboard:
+White key x-position is a running count of white keys before it. Black keys
+use the real instrument's asymmetric placement: dividing an octave's seven
+white keys into twelve equal semitone slots puts semitone `k` at
+`(k + 0.5) * 7/12` white-key widths from C. That places C# and F# left of
+their gaps and D# and A# right of theirs, as on a real piano. Evenly spacing
+them between neighbors is the single most common tell of a hand-rolled
+keyboard:
 
 ```rust
-// Offset of each black key from its white key's left edge,
-// as a fraction of white key width.
-const BLACK_OFFSET: [f32; 5] = [0.55, 1.45, 3.45, 4.50, 5.55]; // C# D# F# G# A#
+fn black_center(semitone: u8) -> f32 {
+    (semitone as f32 + 0.5) * 7.0 / 12.0
+}
 ```
 
 Black keys are narrower (~0.58 of a white key) and shorter (~0.62), both
@@ -161,8 +163,9 @@ it's the most neutral option for anyone compositing later.
 
 - **Chromatic aberration** — radial, subtle, off by default
 - **Vignette** — smoothstep on radial distance
-- **Film grain** — animated hash noise, seeded from frame index so it's
-  deterministic and matches on re-render
+- **Film grain** — animated hash noise, seeded from the playhead time rather
+  than the frame number, so it's deterministic and a given moment looks the
+  same at any frame rate
 - **Dither** — triangular noise before the 8-bit write, to kill banding in
   dark gradients. Cheap, and the alternative is visible stepping in exactly
   the dark backgrounds this app tends to use.
@@ -190,8 +193,8 @@ A 2D affine transform applied to the scene, not a real 3D camera:
 
 ## Antialiasing
 
-Supersampling, not MSAA. Render at 1.5x or 2x and downsample with a box
-filter. MSAA only antialiases geometry edges; most of the edges here come out
+Supersampling, not MSAA. Render at an integer 2x-4x and resolve with an
+exact box filter. MSAA only antialiases geometry edges; most of the edges here come out
 of the SDF fragment shader and from bloom, which MSAA does nothing for.
 Supersampling also improves the bloom's sampling quality. It costs more, so
 preview defaults to 1x with 2x available, and export defaults to 2x.

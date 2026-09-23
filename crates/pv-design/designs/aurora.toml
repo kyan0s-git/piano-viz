@@ -23,9 +23,9 @@ fade = 0.6
 corner_radius = 7.0
 border_width = 1.0
 border_color = "#e0fbff50"
-intensity = 1.4
+intensity = 1.15
 gradient = "across"
-active_boost = 1.8
+active_boost = 1.5
 
 [notes.color]
 source = "hand"
@@ -70,7 +70,7 @@ radius = 1.0
 tint = "#c8f0ff"
 
 [post.tonemap]
-saturation = 1.15
+saturation = 1.3
 
 [camera.drift]
 enabled = true

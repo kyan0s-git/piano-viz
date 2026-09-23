@@ -7,8 +7,20 @@ license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+bytemuck.workspace = true
+pollster.workspace = true
 pv-core.workspace = true
 pv-design.workspace = true
+thiserror.workspace = true
+png.workspace = true
+wgpu.workspace = true
+zune-jpeg.workspace = true
+
+[dev-dependencies]
+pv-midi.workspace = true
 
 [lints]
 workspace = true
+
+[[example]]
+name = "still"

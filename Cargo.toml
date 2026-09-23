@@ -36,6 +36,7 @@ serde = { version = "1", features = ["derive"] }
 thiserror = "2"
 toml = { version = "1", default-features = false, features = ["parse", "serde", "display"] }
 wgpu = { version = "30", default-features = false, features = ["vulkan", "metal", "dx12", "wgsl", "std"] }
+zune-jpeg = "0.4"
 winit = { version = "0.30", default-features = false, features = ["rwh_06", "x11", "wayland", "wayland-dlopen"] }
 
 [workspace.lints.rust]

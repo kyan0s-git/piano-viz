@@ -207,7 +207,7 @@ pub struct SustainTail {
 
 impl Default for SustainTail {
     fn default() -> Self {
-        Self { enabled: true, opacity: 0.18 }
+        Self { enabled: false, opacity: 0.14 }
     }
 }
 
@@ -242,7 +242,7 @@ impl Default for NoteStyle {
             gradient: GradientDir::Along,
             gradient_falloff: 0.35,
             margin: 1.0,
-            active_boost: 1.6,
+            active_boost: 1.35,
             color: NoteColor::default(),
             sustain_tail: SustainTail::default(),
         }

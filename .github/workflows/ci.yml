@@ -36,7 +36,11 @@ jobs:
         # lavapipe gives the GPU tests a software Vulkan device.
         run: sudo apt-get update && sudo apt-get install -y libasound2-dev mesa-vulkan-drivers
       - uses: Swatinem/rust-cache@v2
-      - run: cargo test --workspace
+      - name: Tests
+        run: cargo test --workspace
+        env:
+          # Fail rather than skip if the runner has no usable GPU adapter.
+          PV_REQUIRE_GPU: ${{ runner.os == 'Linux' && '1' || '' }}
 
   timing:
     runs-on: ubuntu-latest

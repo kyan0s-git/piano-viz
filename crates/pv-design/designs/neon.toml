@@ -13,9 +13,9 @@ color = "#000000"
 corner_radius = 2.0
 border_width = 2.0
 border_color = "#ffffffc0"
-intensity = 2.6
+intensity = 1.9
 gradient = "none"
-active_boost = 2.0
+active_boost = 1.4
 
 [notes.color]
 source = "pitch_class"
