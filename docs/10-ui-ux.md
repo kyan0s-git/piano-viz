@@ -57,15 +57,18 @@ More than a progress bar, because scrubbing is how people navigate:
   makes a section findable at a glance rather than by hunting
 - Drag to scrub, with the visuals updating live. [Stateless
   particles](05-particles.md) are what make this instant rather than a stall
-- Loop region: drag on the upper strip, `[` and `]` to set from the playhead
+- Loop region: shift-drag on the timeline, or `[` and `]` to set it from the
+  playhead
 - Bar/beat markers from the tempo map
 - Click a track's row to solo it temporarily
 
 ## Track panel
 
-Per track: color swatch (click to override), visibility, mute, solo, name,
-note count. Drag to reorder z-order — which track draws on top matters when
-hands overlap and is otherwise unfixable.
+Per track: color swatch (click to override, right-click the name to reset),
+a `notes` toggle for visibility, a `sound` toggle for mute, and the name —
+click it to solo. Visibility and sound are independent: hide a hand's notes
+and still hear it, or the reverse. (Reordering tracks' draw order is still
+to do.)
 
 Bulk actions: assign a palette across all tracks, reset overrides, auto-split
 hands.
@@ -86,6 +89,12 @@ can read the TOML, and vice versa.
 A search field over all parameters. With this many controls, remembering
 which section holds "chromatic aberration" is a real cost, and search is much
 cheaper to build than a perfect taxonomy.
+
+## Preview
+
+Click the picture to play or pause; double-click for presentation mode.
+While nothing moves — paused, no animation, no input — the app stops
+redrawing entirely and idles at 0% CPU.
 
 ## Render dialog
 

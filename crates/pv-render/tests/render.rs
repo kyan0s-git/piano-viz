@@ -107,8 +107,12 @@ fn every_builtin_design_renders() {
     for (id, _) in pv_design::BUILTIN {
         let Some(mut rig) = Rig::new(&pv_design::builtin(id)) else { return };
         let img = rig.at(25.5);
-        let lit =
-            img.chunks_exact(4).filter(|p| p[0] as u32 + p[1] as u32 + p[2] as u32 > 30).count();
+        let lit = img
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .filter(|p| p[0] as u32 + p[1] as u32 + p[2] as u32 > 30)
+            .count();
         assert!(lit > (W * H / 20) as usize, "{id} rendered almost nothing");
     }
 }
