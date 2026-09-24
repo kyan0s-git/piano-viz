@@ -11,8 +11,19 @@ CoreMIDI/ALSA/WinMM, with device hotplug.
 
 The input callback runs on the OS MIDI thread and is subject to the same
 discipline as the audio callback: it timestamps the event and pushes it into
-a lock-free queue. Nothing else. No synthesis, no allocation, no touching
+lock-free queues. Nothing else. No synthesis, no allocation, no touching
 app state.
+
+The audio queue goes **straight to the audio callback** (`Engine::live_sender`),
+never through the UI thread — which would add up to a frame, ~16 ms, of
+latency before the synth heard about the key.
+
+No MIDI keyboard? The **computer keyboard** plays too, in the common
+"musical typing" layout (home row white keys, the row above black keys, Z/X
+for octave, Space as the sustain pedal), and so does **clicking the keys** in
+the preview. Those go through the UI thread, so they carry that frame of
+latency; fine for sketching, and the reason a MIDI keyboard takes the direct
+path.
 
 ```
 MIDI device
@@ -56,10 +67,9 @@ So visuals are delayed by the measured output latency, to land together:
 let visual_time = event.timestamp + output_latency;
 ```
 
-There is also a user-facing offset on top, because perceived sync varies with
-display latency, which we can't measure. A calibration screen — a metronome
-with a flashing marker and a slider until they line up — is a better answer
-than asking someone to guess a millisecond value.
+Perceived sync also varies with display latency, which we can't measure. A
+calibration screen — a metronome with a flashing marker and a slider until
+they line up — is the planned answer. **Not built yet.**
 
 ## Visual treatment
 
@@ -70,16 +80,17 @@ fall from above:
   detaching on release to drift up and fade
 - Particles fire on press, driven by velocity
 - The keyboard lights as in playback
-- Optionally, a loaded MIDI still falls from above while the player plays
-  along — a practice/duet mode, and the natural way to build a
-  play-along video
+- Play-along — a loaded MIDI falling from above while the player plays —
+  is planned but **not built yet**: it needs two note sets drawn in
+  opposite directions in one frame
 
-Because a live note's length isn't known until release, its geometry is
-computed from `now - press_time` each frame rather than from a stored
-duration. Live notes are the one thing in the renderer that *is* stateful,
-which is unavoidable: the future genuinely isn't known. They live in a small
-fixed 128-entry array — one slot per possible pitch — so it's still
-allocation-free.
+Because a live note's length isn't known until release, a held note's
+duration is `now - press_time`, recomputed each frame. The recorder keeps
+held keys in a fixed 128-slot array and finished notes in a list, and each
+frame hands the renderer a small score of what's on screen, written into the
+existing note buffer. That per-frame score is a small allocation, live mode
+only; playback and export stay allocation-free. Notes released under the
+sustain pedal keep ringing until it lifts or the key is struck again.
 
 ## Recording
 
@@ -92,10 +103,18 @@ Also exportable as a standard `.mid`, so it's usable elsewhere.
 
 ## Device handling
 
-- Enumerate on startup, refresh on hotplug
-- Remember the last-used device and reconnect automatically
-- Multiple simultaneous inputs merged into one stream
-- Channel filter, for controllers that split zones across channels
-- Velocity curve (linear / soft / hard / custom) — cheap to offer, and
-  meaningful on controllers with poorly calibrated action
+Built:
+
+- Enumerate on startup, with a refresh button
+- All channels of a device merged into one stream
 - Sustain pedal (CC64) honored for both audio and visuals, as in playback
+- Clear status when MIDI input isn't available at all
+- An optional 256-frame low-latency audio buffer
+
+Planned, not built yet:
+
+- Automatic hotplug detection and reconnecting to the last-used device
+- Several devices at once
+- Channel filter, for controllers that split zones across channels
+- Velocity curves (soft / hard / custom), for controllers with poorly
+  calibrated action

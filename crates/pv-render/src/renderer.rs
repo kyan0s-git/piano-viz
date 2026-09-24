@@ -286,13 +286,40 @@ impl Renderer {
         self.notes_buf = gpu.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("notes"),
             contents: bytes,
-            usage: wgpu::BufferUsages::STORAGE,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
         });
         self.score = score;
         self.track_visible = vec![true; self.score.tracks.len()];
         self.track_colors = vec![None; self.score.tracks.len()];
         self.refresh_scene_bg(&gpu.device);
         self.rebuild(gpu);
+    }
+
+    /// Replace the notes of a score that changes every frame (live input),
+    /// reusing the note buffer while it has room. Unlike [`set_score`],
+    /// keeps track visibility and colors.
+    ///
+    /// [`set_score`]: Self::set_score
+    pub fn update_score(&mut self, gpu: &Gpu, score: Arc<Score>) {
+        let notes = score.notes.as_slice();
+        let needed = (notes.len().max(1) * 16) as u64;
+        if needed > self.notes_buf.size() {
+            self.notes_buf = gpu.device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("notes"),
+                size: needed.next_power_of_two().max(4096),
+                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            });
+            self.refresh_scene_bg(&gpu.device);
+        }
+        if !notes.is_empty() {
+            gpu.queue.write_buffer(&self.notes_buf, 0, bytemuck::cast_slice(notes));
+        }
+        let auto = self.design.keyboard.range == pv_design::KeyRange::Auto;
+        self.score = score;
+        if auto {
+            self.rebuild(gpu);
+        }
     }
 
     /// Apply a Design. Returns problems worth showing (a missing background

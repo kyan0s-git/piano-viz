@@ -9,7 +9,7 @@ pub mod sequencer;
 pub mod sf2;
 pub mod wav;
 
-pub use engine::{Engine, EngineClock};
+pub use engine::{Engine, EngineClock, LiveSender};
 pub use font::{builtin_font, has_drums, load_font};
 pub use rustysynth::SoundFont;
 pub use sequencer::{SequenceOptions, TrackMask};

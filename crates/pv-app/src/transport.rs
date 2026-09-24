@@ -24,6 +24,7 @@ pub struct Transport {
     pub audio_status: String,
     /// Start playing as soon as audio is ready (first run).
     autoplay: bool,
+    low_latency: bool,
 }
 
 impl Transport {
@@ -44,6 +45,7 @@ impl Transport {
             options: SequenceOptions::default(),
             audio_status: "preparing piano…".into(),
             autoplay: false,
+            low_latency: false,
         }
     }
 
@@ -78,7 +80,7 @@ impl Transport {
             }
             return;
         }
-        match Engine::start(font, None) {
+        match Engine::start(font, self.low_latency.then_some(256)) {
             Ok(mut e) => {
                 self.options.skip_percussion = !pv_audio::has_drums(self.font.as_ref().unwrap());
                 e.set_score(score, self.options);
@@ -240,5 +242,29 @@ impl Transport {
 
     pub fn latency(&self) -> Option<f64> {
         self.engine.as_ref().map(|(e, _)| e.latency())
+    }
+
+    /// The engine, when there is one: live input talks to it directly.
+    pub fn engine(&mut self) -> Option<&mut Engine> {
+        self.engine.as_mut().map(|(e, _)| e)
+    }
+
+    /// Reopen the audio device with a smaller buffer for live play (256
+    /// frames, ~5 ms) or the playback default. A smaller buffer halves
+    /// latency and doubles underrun risk: the right trade when someone is
+    /// playing, stated rather than hidden.
+    pub fn set_low_latency(&mut self, low: bool, score: &Score) {
+        self.low_latency = low;
+        let Some(font) = self.font.clone() else { return };
+        if self.engine.is_some() {
+            let pos = self.now();
+            self.engine = None;
+            self.use_font(font, score);
+            self.seek(pos);
+        }
+    }
+
+    pub fn low_latency(&self) -> bool {
+        self.low_latency
     }
 }

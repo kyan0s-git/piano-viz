@@ -30,6 +30,15 @@ pub enum Action {
     Presentation,
     ExitPresentation,
     Quit,
+    Live(bool),
+    LiveConnect(String),
+    LiveDisconnect,
+    NoteOn(u8),
+    NoteOff(u8),
+    Pedal(bool),
+    Record(bool),
+    SaveMidi,
+    LowLatency(bool),
 }
 
 pub struct UiState {
@@ -44,6 +53,8 @@ pub struct UiState {
     pub export: ExportForm,
     pub midi_path: Option<PathBuf>,
     thumb: Option<egui::TextureHandle>,
+    /// Key held down by the mouse on the preview's keyboard, in live mode.
+    mouse_key: Option<u8>,
 }
 
 impl Default for UiState {
@@ -59,6 +70,7 @@ impl Default for UiState {
             export: ExportForm::default(),
             midi_path: None,
             thumb: None,
+            mouse_key: None,
         }
     }
 }
@@ -77,6 +89,7 @@ pub struct Cx<'a> {
     pub presentation: bool,
     pub actions: &'a mut Vec<Action>,
     pub time: f64,
+    pub live: &'a mut crate::live::Live,
 }
 
 pub fn style(ctx: &egui::Context) {
@@ -104,6 +117,10 @@ pub fn style(ctx: &egui::Context) {
 fn shortcuts(ctx: &egui::Context, st: &mut UiState, cx: &mut Cx) {
     use egui::{Key, Modifiers};
     if ctx.egui_wants_keyboard_input() {
+        return;
+    }
+    if cx.live.active {
+        live_keys(ctx, st, cx);
         return;
     }
     let t = cx.time;
@@ -203,6 +220,54 @@ fn shortcuts(ctx: &egui::Context, st: &mut UiState, cx: &mut Cx) {
     });
 }
 
+/// Live mode: the computer keyboard is a piano. Home row white keys, the
+/// row above black keys, Z/X shift the octave, Space is the sustain pedal.
+fn live_keys(ctx: &egui::Context, st: &mut UiState, cx: &mut Cx) {
+    use egui::{Event, Key};
+    let focused = ctx.input(|i| i.focused);
+    if !focused {
+        // Releases never arrive for keys held while the window loses focus.
+        for k in 0..128u8 {
+            if std::mem::take(&mut cx.live.typed[k as usize]) {
+                cx.actions.push(Action::NoteOff(k));
+            }
+        }
+        return;
+    }
+    ctx.input_mut(|i| {
+        i.events.retain(|e| {
+            let Event::Key { key, pressed, repeat, modifiers, .. } = *e else { return true };
+            if modifiers.command || modifiers.alt {
+                return true;
+            }
+            if repeat {
+                return false;
+            }
+            match key {
+                Key::Escape if pressed => cx.actions.push(Action::Live(false)),
+                Key::F3 if pressed => st.hud = !st.hud,
+                Key::F11 if pressed => cx.actions.push(Action::Presentation),
+                Key::Z if pressed => cx.live.octave = cx.live.octave.saturating_sub(12).max(12),
+                Key::X if pressed => cx.live.octave = (cx.live.octave + 12).min(96),
+                Key::Space => cx.actions.push(Action::Pedal(pressed)),
+                _ => {
+                    let Some(off) = crate::live::Live::typing_offset(key) else { return true };
+                    let k = (cx.live.octave + off).min(127);
+                    let held = &mut cx.live.typed[k as usize];
+                    if pressed && !*held {
+                        *held = true;
+                        cx.actions.push(Action::NoteOn(k));
+                    } else if !pressed && *held {
+                        *held = false;
+                        cx.actions.push(Action::NoteOff(k));
+                    }
+                }
+            }
+            false
+        });
+    });
+}
+
 pub fn draw(root: &mut Ui, st: &mut UiState, cx: &mut Cx) {
     shortcuts(&root.ctx().clone(), st, cx);
     // Finish an edit when the pointer is released: one drag, one undo step.
@@ -248,6 +313,14 @@ fn menu(ui: &mut Ui, st: &mut UiState, cx: &mut Cx) {
         ui.menu_button("File", |ui| {
             if ui.button("Open MIDI…    Ctrl+O").clicked() {
                 cx.actions.push(Action::OpenMidi);
+                ui.close();
+            }
+            if ui
+                .button("Save MIDI…")
+                .on_hover_text("Save the loaded piece — a live recording, say — as a .mid")
+                .clicked()
+            {
+                cx.actions.push(Action::SaveMidi);
                 ui.close();
             }
             ui.separator();
@@ -445,9 +518,14 @@ fn tracks_panel(ui: &mut Ui, cx: &mut Cx) {
     ui.label(egui::RichText::new("TRACKS").small().strong().color(MUTED_TEXT));
     ui.add_space(2.0);
     let s = &mut *cx.session;
-    let rows: Vec<(usize, String, u32)> =
-        s.score.visible_tracks().map(|(i, t)| (i, t.label(i), t.note_count)).collect();
-    if rows.is_empty() {
+    // In live mode the loaded piece isn't what's on screen.
+    let rows: Vec<(usize, String, u32)> = if cx.live.active {
+        ui.label(egui::RichText::new("Showing live input").color(MUTED_TEXT));
+        Vec::new()
+    } else {
+        s.score.visible_tracks().map(|(i, t)| (i, t.label(i), t.note_count)).collect()
+    };
+    if rows.is_empty() && !cx.live.active {
         ui.label(egui::RichText::new("No notes in this file").color(MUTED_TEXT));
     }
     for (n, (i, label, count)) in rows.into_iter().enumerate() {
@@ -506,6 +584,10 @@ fn tracks_panel(ui: &mut Ui, cx: &mut Cx) {
         s.tracks_dirty = true;
     }
 
+    ui.add_space(14.0);
+    live_panel(ui, cx);
+
+    let s = &mut *cx.session;
     ui.add_space(14.0);
     ui.label(egui::RichText::new("DESIGN").small().strong().color(MUTED_TEXT));
     let current = match &s.design_source {
@@ -572,6 +654,110 @@ fn tracks_panel(ui: &mut Ui, cx: &mut Cx) {
     });
 }
 
+fn live_panel(ui: &mut Ui, cx: &mut Cx) {
+    let live = &mut *cx.live;
+    ui.label(egui::RichText::new("LIVE").small().strong().color(MUTED_TEXT));
+    ui.horizontal(|ui| {
+        let label = if live.active { "Live: on" } else { "Live: off" };
+        let b = egui::Button::new(egui::RichText::new(label).color(if live.active {
+            Color32::BLACK
+        } else {
+            ui.visuals().text_color()
+        }));
+        let b = if live.active { b.fill(ACCENT) } else { b };
+        if ui.add(b).on_hover_text("Play and the visuals follow (Esc to leave)").clicked() {
+            cx.actions.push(Action::Live(!live.active));
+        }
+        if live.active {
+            let rec = live.rec.recording.is_some();
+            let text = if rec {
+                let secs = live.rec.now() - live.rec.recording.unwrap_or(0.0);
+                format!("Stop {}:{:02}", (secs / 60.0) as u32, secs as u32 % 60)
+            } else {
+                "Record".into()
+            };
+            let b = egui::Button::new(egui::RichText::new(text).color(if rec {
+                Color32::WHITE
+            } else {
+                ui.visuals().text_color()
+            }));
+            let b = if rec { b.fill(Color32::from_rgb(0xb8, 0x2e, 0x2e)) } else { b };
+            if ui
+                .add(b)
+                .on_hover_text("Record what you play; it becomes the loaded piece")
+                .clicked()
+            {
+                cx.actions.push(Action::Record(!rec));
+            }
+        }
+    });
+    ui.horizontal(|ui| {
+        let current = live.port.clone().unwrap_or_else(|| "MIDI device…".into());
+        let mut pick = None;
+        egui::ComboBox::from_id_salt("midi-port")
+            .width(ui.available_width() - 40.0)
+            .selected_text(current)
+            .show_ui(ui, |ui| {
+                if live.ports.is_empty() {
+                    ui.label(egui::RichText::new("No devices found").color(MUTED_TEXT));
+                }
+                for p in &live.ports {
+                    if ui.selectable_label(live.port.as_deref() == Some(p), p).clicked() {
+                        pick = Some(p.clone());
+                    }
+                }
+            });
+        if ui.small_button("⟳").on_hover_text("Look for devices again").clicked() {
+            live.refresh_ports();
+        }
+        if let Some(p) = pick {
+            cx.actions.push(Action::LiveConnect(p));
+        }
+    });
+    if live.connected() && ui.small_button("Disconnect").clicked() {
+        cx.actions.push(Action::LiveDisconnect);
+    }
+    ui.label(egui::RichText::new(&live.status).small().color(MUTED_TEXT));
+    if live.active {
+        ui.label(
+            egui::RichText::new(format!(
+                "Keyboard plays from C{}: A W S E D F T G… · Z/X octave · Space pedal · or click the keys",
+                live.octave as i32 / 12 - 1
+            ))
+            .small()
+            .color(MUTED_TEXT),
+        );
+    }
+    let mut low = cx.transport.low_latency();
+    if ui.checkbox(&mut low, "Low latency").on_hover_text("256-sample audio buffer: about 5 ms instead of 11, with a higher risk of clicks on a busy machine").changed() {
+        cx.actions.push(Action::LowLatency(low));
+    }
+}
+
+/// Which key of the preview's keyboard is under `p`, if any. Black keys
+/// are tested first: they sit on top.
+fn key_at(p: Pos2, rect: Rect, cx: &Cx) -> Option<u8> {
+    let d = cx.renderer.design();
+    let kb_h = d.keyboard.height;
+    let kb_y0 = if d.background.reflection.enabled { kb_h * 0.6 } else { 0.0 };
+    let y = (rect.bottom() - p.y) / rect.height();
+    let x = (p.x - rect.left()) / rect.width();
+    if !(kb_y0..=kb_y0 + kb_h).contains(&y) {
+        return None;
+    }
+    let keys = &cx.renderer.key_layout().keys;
+    let in_black_zone = y > kb_y0 + kb_h * (1.0 - d.keyboard.black_length_ratio);
+    let hit = |black: bool| {
+        keys.iter()
+            .position(|k| k.visible && k.black == black && (k.x0..=k.x1).contains(&x))
+            .map(|i| i as u8)
+    };
+    if in_black_zone && let Some(k) = hit(true) {
+        return Some(k);
+    }
+    hit(false)
+}
+
 fn preview(ui: &mut Ui, st: &mut UiState, cx: &mut Cx) {
     let full = ui.available_rect_before_wrap();
     ui.painter().rect_filled(full, 0.0, Color32::from_rgb(0x08, 0x08, 0x09));
@@ -591,7 +777,7 @@ fn preview(ui: &mut Ui, st: &mut UiState, cx: &mut Cx) {
     *cx.preview_px =
         ((size.x * ppp).round().max(1.0) as u32, (size.y * ppp).round().max(1.0) as u32);
 
-    let resp = ui.allocate_rect(full, Sense::click());
+    let resp = ui.allocate_rect(full, Sense::click_and_drag());
     if let Some(id) = cx.preview_tex {
         ui.painter().image(
             id,
@@ -600,7 +786,21 @@ fn preview(ui: &mut Ui, st: &mut UiState, cx: &mut Cx) {
             Color32::WHITE,
         );
     }
-    if resp.clicked() && rect.contains(resp.interact_pointer_pos().unwrap_or_default()) {
+    if cx.live.active {
+        // Play the keyboard with the mouse: press, slide across keys, release.
+        let down = ui.input(|i| i.pointer.primary_down());
+        let key =
+            if down { resp.interact_pointer_pos().and_then(|p| key_at(p, rect, cx)) } else { None };
+        if key != st.mouse_key {
+            if let Some(k) = st.mouse_key.take() {
+                cx.actions.push(Action::NoteOff(k));
+            }
+            if let Some(k) = key {
+                cx.actions.push(Action::NoteOn(k));
+            }
+            st.mouse_key = key;
+        }
+    } else if resp.clicked() && rect.contains(resp.interact_pointer_pos().unwrap_or_default()) {
         cx.transport.toggle();
         st.hint_dismissed = true;
     }

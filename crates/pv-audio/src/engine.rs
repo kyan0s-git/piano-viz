@@ -16,16 +16,44 @@ const MAX_BLOCK: usize = 2048;
 enum Command {
     Play,
     Pause,
-    Seek { sample: u64, chase: Box<Chase> },
+    Seek {
+        sample: u64,
+        chase: Box<Chase>,
+    },
     Sequence(Arc<Sequence>),
     Synth(Box<Synthesizer>),
     Volume(f32),
     Mute(TrackMask),
     Speed(f64),
-    NoteOn { channel: u8, key: u8, velocity: u8 },
-    NoteOff { channel: u8, key: u8 },
-    Controller { channel: u8, number: u8, value: u8 },
+    NoteOn {
+        channel: u8,
+        key: u8,
+        velocity: u8,
+    },
+    NoteOff {
+        channel: u8,
+        key: u8,
+    },
+    Controller {
+        channel: u8,
+        number: u8,
+        value: u8,
+    },
     AllOff,
+    /// A new queue for live MIDI input, replacing any previous one.
+    LiveQueue(rtrb::Consumer<[u8; 3]>),
+}
+
+/// Raw MIDI from an input device, straight to the audio thread. Owned by
+/// the device's callback, so key presses never wait for a UI frame.
+pub struct LiveSender(rtrb::Producer<[u8; 3]>);
+
+impl LiveSender {
+    /// Queue a channel message (note on/off, controller). Returns false if
+    /// the queue is full, which only happens if audio has stalled.
+    pub fn send(&mut self, msg: [u8; 3]) -> bool {
+        self.0.push(msg).is_ok()
+    }
 }
 
 /// Replaced objects travel back to the main thread to be freed, so the
@@ -35,6 +63,7 @@ enum Trash {
     Sequence(Arc<Sequence>),
     Synth(Box<Synthesizer>),
     Chase(Box<Chase>),
+    Live(rtrb::Consumer<[u8; 3]>),
 }
 
 struct Shared {
@@ -119,6 +148,7 @@ impl Engine {
             channels: config.channels.max(1) as usize,
             left: vec![0.0; MAX_BLOCK],
             right: vec![0.0; MAX_BLOCK],
+            live: None,
         };
 
         let err = |e| eprintln!("audio stream error: {e}");
@@ -228,6 +258,14 @@ impl Engine {
         self.send(Command::AllOff);
     }
 
+    /// A sender for live MIDI input that bypasses the UI thread entirely.
+    /// Each call replaces the previous sender's queue.
+    pub fn live_sender(&mut self) -> LiveSender {
+        let (tx, rx) = rtrb::RingBuffer::new(1024);
+        self.send(Command::LiveQueue(rx));
+        LiveSender(tx)
+    }
+
     /// Free what the audio thread handed back. Call once per UI frame.
     pub fn collect_garbage(&mut self) {
         while let Ok(t) = self.trash.pop() {
@@ -286,6 +324,7 @@ struct Callback {
     channels: usize,
     left: Vec<f32>,
     right: Vec<f32>,
+    live: Option<rtrb::Consumer<[u8; 3]>>,
 }
 
 impl Callback {
@@ -295,6 +334,16 @@ impl Callback {
         info: &cpal::OutputCallbackInfo,
     ) {
         self.handle_commands();
+        if let Some(live) = &mut self.live {
+            while let Ok([status, d1, d2]) = live.pop() {
+                self.synth.process_midi_message(
+                    (status & 15) as i32,
+                    (status & 0xF0) as i32,
+                    d1 as i32,
+                    d2 as i32,
+                );
+            }
+        }
 
         let ts = info.timestamp();
         if let Some(lat) = ts.playback.checked_duration_since(ts.callback) {
@@ -372,6 +421,11 @@ impl Callback {
                     value as i32,
                 ),
                 Command::AllOff => self.synth.note_off_all(false),
+                Command::LiveQueue(rx) => {
+                    if let Some(old) = self.live.replace(rx) {
+                        let _ = self.trash.push(Trash::Live(old));
+                    }
+                }
             }
         }
     }

@@ -25,6 +25,7 @@ pv-export.workspace = true
 pv-midi.workspace = true
 pv-render.workspace = true
 rfd.workspace = true
+rtrb.workspace = true
 winit.workspace = true
 
 [lints]

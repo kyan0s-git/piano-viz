@@ -1,6 +1,7 @@
 //! piano-viz: the desktop app. See docs/10-ui-ux.md.
 
 mod exporter;
+mod live;
 mod session;
 mod transport;
 mod ui;
@@ -67,6 +68,7 @@ pub struct State {
     last_frame: Instant,
     presentation: bool,
     quit: bool,
+    live: live::Live,
 }
 
 impl ApplicationHandler for App {
@@ -116,7 +118,10 @@ impl ApplicationHandler for App {
         // Redraw continuously only while something moves. Otherwise sleep
         // until input arrives or egui asked for a repaint at a set time
         // (an animation, a tooltip, a message expiring).
-        let busy = s.transport.is_playing() || s.export.is_some() || !s.transport.audio_ready();
+        let busy = s.transport.is_playing()
+            || s.export.is_some()
+            || !s.transport.audio_ready()
+            || s.live.active;
         if busy || s.ui.repaint_now {
             s.window.request_redraw();
             event_loop.set_control_flow(ControlFlow::Poll);
@@ -212,6 +217,7 @@ impl State {
             last_frame: Instant::now(),
             presentation: false,
             quit: false,
+            live: live::Live::new(),
         };
         s.preview.renderer.set_score(&s.gpu, s.session.score.clone());
         if let Some(p) = open {
@@ -259,6 +265,28 @@ impl State {
         self.window.set_title(&format!("{name} — piano-viz"));
     }
 
+    /// Enter or leave live mode. Live notes rise from the keys; playback
+    /// pauses; leaving restores the loaded score.
+    fn set_live(&mut self, on: bool) {
+        if on == self.live.active && on {
+            self.session.design_dirty = true;
+            return;
+        }
+        self.live.active = on;
+        if on {
+            self.transport.pause();
+        } else {
+            let t = self.live.rec.now();
+            self.live.rec.release_all(t);
+            self.live.typed = [false; 128];
+            if let Some(e) = self.transport.engine() {
+                e.all_notes_off();
+            }
+            self.preview.renderer.set_score(&self.gpu, self.session.score.clone());
+        }
+        self.session.design_dirty = true;
+    }
+
     fn toggle_presentation(&mut self) {
         self.presentation = !self.presentation;
         self.window.set_fullscreen(self.presentation.then_some(Fullscreen::Borderless(None)));
@@ -281,9 +309,19 @@ impl State {
         }
         self.apply_changes();
 
-        // Looping, and stopping after the end.
+        // Live: the picture follows the player, drawn late by the output
+        // latency so light and sound land together.
         let mut t = self.transport.now();
-        if self.transport.is_playing() {
+        if self.live.active {
+            self.live.drain();
+            let lat = self.transport.latency().unwrap_or(0.0) as f32;
+            let tl = self.live.rec.now() - lat;
+            let score = self.live.rec.frame(tl);
+            self.preview.renderer.update_score(&self.gpu, score);
+            t = tl as f64;
+        }
+        // Looping, and stopping after the end.
+        if !self.live.active && self.transport.is_playing() {
             if let (true, Some((a, b))) = (self.session.looping, self.session.loop_range)
                 && t >= b
             {
@@ -337,6 +375,7 @@ impl State {
                 presentation: self.presentation,
                 actions: &mut actions,
                 time: t,
+                live: &mut self.live,
             };
             ui::draw(root, &mut self.ui, &mut cx);
         });
@@ -479,6 +518,68 @@ impl State {
                 }
             }
             Action::Quit => self.quit = true,
+            Action::Live(on) => self.set_live(on),
+            Action::LiveConnect(port) => {
+                let sender = self.transport.engine().map(|e| e.live_sender());
+                if sender.is_none() {
+                    self.session.error(
+                        "No sound device: the MIDI keyboard will light the keys but won't play"
+                            .into(),
+                    );
+                }
+                self.live.connect(&port, sender);
+                if self.live.active {
+                    self.set_live(true);
+                }
+            }
+            Action::LiveDisconnect => self.live.disconnect(),
+            Action::NoteOn(key) => {
+                let t = self.live.rec.now();
+                self.live.rec.note_on(t, key, self.live.velocity);
+                if let Some(e) = self.transport.engine() {
+                    e.note_on(0, key, self.live.velocity);
+                }
+            }
+            Action::NoteOff(key) => {
+                let t = self.live.rec.now();
+                self.live.rec.note_off(t, key);
+                if let Some(e) = self.transport.engine() {
+                    e.note_off(0, key);
+                }
+            }
+            Action::Pedal(down) => {
+                let t = self.live.rec.now();
+                self.live.rec.pedal(t, down);
+                if let Some(e) = self.transport.engine() {
+                    e.controller(0, 64, if down { 127 } else { 0 });
+                }
+            }
+            Action::Record(on) => {
+                if on {
+                    self.live.rec.start_recording();
+                } else if let Some(score) = self.live.rec.stop_recording() {
+                    let n = score.notes.len();
+                    self.set_live(false);
+                    self.load_score(score, Path::new("Live recording.mid"));
+                    self.session.info(format!("Recorded {n} notes — scrub it, restyle it, export it, or save it from the File menu"));
+                } else {
+                    self.session.info("Nothing recorded".into());
+                }
+            }
+            Action::SaveMidi => {
+                let name = format!("{}.mid", self.session.score_name.replace(['/', '\\'], "-"));
+                if let Some(p) = rfd::FileDialog::new()
+                    .add_filter("MIDI", &["mid"])
+                    .set_file_name(name)
+                    .save_file()
+                {
+                    match std::fs::write(&p, pv_midi::write::score_to_smf(&self.session.score)) {
+                        Ok(()) => self.session.info(format!("Saved {}", p.display())),
+                        Err(e) => self.session.error(format!("{}: {e}", p.display())),
+                    }
+                }
+            }
+            Action::LowLatency(on) => self.transport.set_low_latency(on, &self.session.score),
         }
     }
 
@@ -487,8 +588,12 @@ impl State {
         let s = &mut self.session;
         if s.design_dirty {
             s.design_dirty = false;
-            let warnings =
-                self.preview.renderer.set_design(&self.gpu, &s.design, s.bundle_dir.as_deref());
+            // Live notes have no future to fall from: they rise from the keys.
+            let mut d = s.design.clone();
+            if self.live.active {
+                d.layout.direction = pv_design::Direction::Up;
+            }
+            let warnings = self.preview.renderer.set_design(&self.gpu, &d, s.bundle_dir.as_deref());
             for w in warnings {
                 s.error(w);
             }
@@ -496,7 +601,11 @@ impl State {
         }
         if s.tracks_dirty {
             s.tracks_dirty = false;
-            self.preview.renderer.set_track_visibility(&self.gpu, &s.shown());
+            if self.live.active {
+                self.preview.renderer.set_track_visibility(&self.gpu, &[true]);
+            } else {
+                self.preview.renderer.set_track_visibility(&self.gpu, &s.shown());
+            }
             self.preview.renderer.set_track_colors(&self.gpu, &s.track_colors);
             self.transport.set_muted(&s.silenced());
         }

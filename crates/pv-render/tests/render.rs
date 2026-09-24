@@ -198,3 +198,38 @@ fn read_png(path: &std::path::Path) -> Vec<u8> {
         .unwrap_or_else(|e| panic!("{}: {e} (run with PV_BLESS=1 to create)", path.display()));
     pv_render::decode_image(&bytes).unwrap().2
 }
+
+#[test]
+fn live_updates_draw_rising_notes_above_the_keys() {
+    // Live mode: a changing score, notes rising from the keys. A held note
+    // ends "now", so under the falling direction it would sit entirely below
+    // the strike line and vanish — the bug this guards against.
+    let mut d = Design::default();
+    d.layout.direction = pv_design::Direction::Up;
+    d.particles.clear();
+    // Only the note may change the picture above the keys: no key glow.
+    d.keyboard.pressed.glow_intensity = 0.0;
+    d.keyboard.pressed.tint_from_note = false;
+    let Some(mut rig) = Rig::new(&d) else { return };
+    let empty = Arc::new(pv_core::Score::default());
+    rig.r.update_score(rig.gpu, empty);
+    let before = rig.at(2.0);
+    let held = pv_core::Note {
+        start: 1.0,
+        duration: 1.0,
+        sustain: 0.0,
+        pitch: 60,
+        velocity: 100,
+        track: 0,
+        flags: 0,
+    };
+    let score = pv_core::Score { notes: pv_core::NoteTable::new(vec![held]), ..Default::default() };
+    rig.r.update_score(rig.gpu, Arc::new(score));
+    let after = rig.at(2.0);
+    // Compare the band just above the keyboard (rows 40%-75% from the top).
+    let band = |img: &[u8]| -> u64 {
+        let (a, b) = ((H * 40 / 100) as usize, (H * 75 / 100) as usize);
+        img[a * W as usize * 4..b * W as usize * 4].iter().map(|&v| v as u64).sum()
+    };
+    assert!(band(&after) > band(&before) + 20_000, "no rising note drawn above the keys");
+}
