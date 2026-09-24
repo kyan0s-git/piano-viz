@@ -6,8 +6,9 @@ particles and glow — previewed in real time and exported to video.
 Inspired by [Embers](https://embers.app/) by LyricWulf, which stopped
 development. This is an open-source, cross-platform successor.
 
-> **Status: design phase.** No implementation yet. Everything below is the
-> plan. See [`docs/`](docs/) for the full design.
+> **Status: working, pre-release.** Milestones M0–M6 are implemented:
+> playback, the full look, Designs, video export, the CLI, and live mode.
+> Packaging and polish (M7) remain. See [`docs/13-roadmap.md`](docs/13-roadmap.md).
 
 ## What it does
 
@@ -30,6 +31,23 @@ development. This is an open-source, cross-platform successor.
 The gaps worth filling: Embers was Windows-only and closed, so when
 development stopped the work stopped with it. Nothing in that feature set
 requires being closed or Windows-bound.
+
+## Build and run
+
+Needs Rust 1.95+ and, on Linux, ALSA headers (`libasound2-dev`).
+
+```sh
+cargo run --release -p pv-app          # the app; opens on a demo piece
+cargo run --release -p pv-cli -- render song.mid -o song.mp4
+cargo run --release -p pv-cli -- --help
+```
+
+Video export uses `ffmpeg` if it's installed; PNG-sequence export needs
+nothing extra. Drop a `.mid`, a Design `.toml`, or a SoundFont `.sf2` onto
+the window to open it.
+
+Sizes today: the app is a 12 MB binary and the CLI 5.3 MB, with the piano
+sound synthesized at startup rather than shipped as samples.
 
 ## Design principles
 

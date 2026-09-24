@@ -9,6 +9,27 @@ have never been connected.
 Scope is full Embers parity including live mode, so live mode is a milestone
 rather than a deferred nice-to-have.
 
+## Status
+
+| Milestone | State |
+|---|---|
+| M0 Foundations | Done |
+| M1 MIDI in, notes on screen | Done |
+| M2 Sound and time | Done |
+| M3 The look | Done |
+| M4 Designs | Done — zipped `.pvd` bundles deferred |
+| M5 Export | Done |
+| M6 Live mode | Done — play-along, latency calibration, hotplug, velocity curves not yet |
+| M7 Polish and release | Not started — see below |
+
+Measured against the [success criteria](01-vision.md#success-criteria) so
+far: load of 500k notes in ~93 ms (budget 1 s); bit-identical re-renders
+and exported frames byte-identical to the preview (tested); app idles at 0%
+CPU when paused; binaries 12 MB (app) and 5.3 MB (CLI) against a 20 MB
+budget. **Not yet measured on real hardware**: 1080p60 preview on
+integrated graphics and the 90-second export budget — development ran on a
+software rasterizer, where a 10 s 1080p60 export took about two minutes.
+
 ## M0 — Foundations
 
 Workspace, CI, licenses, the shape of the thing.
